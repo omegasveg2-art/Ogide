@@ -1,0 +1,26 @@
+name: build revolt.apk
+on: { workflow_dispatch: {}, push: { branches: [ main, master ] } }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: unzip if needed
+        run: |
+          if [ ! -f src/core_main.cpp ] && [ -f oxrev.zip ]; then unzip -o oxrev.zip; fi
+          ls -la
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: install NDK + build-tools
+        run: |
+          echo "y" | sdkmanager --install "ndk;26.1.10909125" "build-tools;34.0.0" "platforms;android-33" >/dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> "$GITHUB_ENV"
+      - name: build native core
+        run: ./build_core.sh
+      - name: get r8
+        run: curl -fsSL -o r8.jar https://maven.google.com/com/android/tools/r8/9.3.35/r8-9.3.35.jar
+      - name: build apk
+        env: { R8_JAR: r8.jar }
+        run: ./build_apk.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: revolt-apk, path: revolt.apk }
